@@ -1,0 +1,93 @@
+const express = require('express');
+const mysql = require('mysql2');
+const dotenv = require('dotenv');
+dotenv.config();
+
+const app = express();
+app.use(express.json());
+
+// Koneksi ke database MySQL
+const db = mysql.createConnection({
+  host: process.env.HOST,
+  user: process.env.USER,
+  password: process.env.PASSWORD,
+  database: process.env.DATABASE
+});
+
+db.connect(err => {
+  if (err) {
+    console.error('Database connection failed: ' + err.stack);
+    return;
+  }
+  console.log('Connected to database');
+});
+
+// Membuat catatan baru
+app.post('/notes', (req, res) => {
+    const { title, datetime, note } = req.body;
+    const sql = 'INSERT INTO notes (title, datetime, note) VALUES (?, ?, ?)';
+    
+    db.query(sql, [title, datetime, note], (err, result) => {
+      if (err) {
+        return res.status(500).json({ error: 'Failed to create note' });
+      }
+      
+      res.status(201).json({ message: 'Note created', noteId: result.insertId });
+    });
+  });
+  
+
+// Menampilkan semua catatan
+app.get('/notes', (req, res) => {
+  const sql = 'SELECT * FROM notes';
+  db.query(sql, (err, results) => {
+    if (err) throw err;
+    res.json(results);
+  });
+});
+
+// Menampilkan salah satu catatan berdasarkan ID
+app.get('/notes/:id', (req, res) => {
+  const sql = 'SELECT * FROM notes WHERE id = ?';
+  db.query(sql, [req.params.id], (err, result) => {
+    if (err) throw err;
+    if (result.length > 0) {
+      res.json(result[0]);
+    } else {
+      res.status(404).json({ message: 'Note not found' });
+    }
+  });
+});
+
+// Mengubah catatan berdasarkan ID
+app.put('/notes/:id', (req, res) => {
+  const { title, datetime, note } = req.body;
+  const sql = 'UPDATE notes SET title = ?, datetime = ?, note = ? WHERE id = ?';
+  db.query(sql, [title, datetime, note, req.params.id], (err, result) => {
+    if (err) throw err;
+    if (result.affectedRows > 0) {
+      res.json({ message: 'Note updated' });
+    } else {
+      res.status(404).json({ message: 'Note not found' });
+    }
+  });
+});
+
+// Menghapus catatan berdasarkan ID
+app.delete('/notes/:id', (req, res) => {
+  const sql = 'DELETE FROM notes WHERE id = ?';
+  db.query(sql, [req.params.id], (err, result) => {
+    if (err) throw err;
+    if (result.affectedRows > 0) {
+      res.json({ message: 'Note deleted' });
+    } else {
+      res.status(404).json({ message: 'Note not found' });
+    }
+  });
+});
+
+// Menjalankan server pada port yang ditentukan di file .env
+const PORT = process.env.APP_PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
